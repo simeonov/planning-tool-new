@@ -29,6 +29,7 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
 
         io.emit('users', users);
         io.emit('votes', votes);
+        io.emit('revealed', revealed);
       });
 
       socket.on('vote', ({ userId, value }: { userId: string; value: number }) => {
@@ -64,6 +65,12 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
     });
   }
   res.end();
+};
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
 };
 
 export default SocketHandler;
