@@ -1,63 +1,114 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from '@/types/user';
+import io, { Socket } from 'socket.io-client';
 
-const SOCKET_URL = '/.netlify/functions/socketio';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 export const usePlanningSession = (user: User) => {
   const [users, setUsers] = useState<User[]>([]);
   const [votes, setVotes] = useState<{ [key: string]: number | null }>({});
   const [revealed, setRevealed] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
 
   const sendEvent = useCallback(async (type: string, payload: any) => {
-    const response = await fetch(SOCKET_URL, {
-      method: 'POST',
-      body: JSON.stringify({ type, payload }),
-    });
-    const data = await response.json();
-    return data;
+    if (IS_PRODUCTION) {
+      const response = await fetch('/.netlify/functions/socketio', {
+        method: 'POST',
+        body: JSON.stringify({ type, payload }),
+      });
+      return await response.json();
+    } else {
+      return new Promise((resolve) => {
+        socketRef.current?.emit(type, payload, resolve);
+      });
+    }
   }, []);
+
+  useEffect(() => {
+    if (!IS_PRODUCTION) {
+      socketRef.current = io(SOCKET_URL);
+
+      socketRef.current.on('connect', () => {
+        console.log('Connected to server');
+        socketRef.current?.emit('join', user);
+      });
+
+      socketRef.current.on('users', (updatedUsers: User[]) => {
+        setUsers(updatedUsers);
+      });
+
+      socketRef.current.on('votes', (updatedVotes: { [key: string]: number | null }) => {
+        setVotes(updatedVotes);
+      });
+
+      socketRef.current.on('revealed', (isRevealed: boolean) => {
+        setRevealed(isRevealed);
+      });
+
+      socketRef.current.on('emojiThrow', (data) => {
+        const event = new CustomEvent('emojiThrow', { detail: data });
+        window.dispatchEvent(event);
+      });
+
+      return () => {
+        socketRef.current?.disconnect();
+      };
+    }
+  }, [user]);
 
   const joinSession = useCallback(async () => {
     const data = await sendEvent('join', user);
-    setUsers(data.users);
-    setVotes(data.votes);
-    setRevealed(data.revealed);
+    if (IS_PRODUCTION) {
+      setUsers(data.users);
+      setVotes(data.votes);
+      setRevealed(data.revealed);
+    }
   }, [user, sendEvent]);
 
   useEffect(() => {
     joinSession();
-    // Set up polling for updates
-    const intervalId = setInterval(joinSession, 5000);
-    return () => clearInterval(intervalId);
+    if (IS_PRODUCTION) {
+      const intervalId = setInterval(joinSession, 5000);
+      return () => clearInterval(intervalId);
+    }
   }, [joinSession]);
 
   const vote = useCallback(async (value: number) => {
     const data = await sendEvent('vote', { userId: user.id, value });
-    setVotes(data.votes);
+    if (IS_PRODUCTION) {
+      setVotes(data.votes);
+    }
   }, [user.id, sendEvent]);
 
   const reveal = useCallback(async () => {
     const data = await sendEvent('reveal', {});
-    setRevealed(data.revealed);
-    setVotes(data.votes);
+    if (IS_PRODUCTION) {
+      setRevealed(data.revealed);
+      setVotes(data.votes);
+    }
   }, [sendEvent]);
 
   const reset = useCallback(async () => {
     const data = await sendEvent('reset', {});
-    setVotes(data.votes);
-    setRevealed(data.revealed);
+    if (IS_PRODUCTION) {
+      setVotes(data.votes);
+      setRevealed(data.revealed);
+    }
   }, [sendEvent]);
 
   const updateUser = useCallback(async (updatedUser: User) => {
     const data = await sendEvent('join', updatedUser);
-    setUsers(data.users);
+    if (IS_PRODUCTION) {
+      setUsers(data.users);
+    }
   }, [sendEvent]);
 
   const throwEmoji = useCallback(async (targetUserId: string, emoji: string, startX: number, startY: number) => {
     const data = await sendEvent('throwEmoji', { targetUserId, emoji, startX, startY });
-    if (data.emojiThrow) {
+    if (IS_PRODUCTION && data.emojiThrow) {
       const event = new CustomEvent('emojiThrow', { detail: data.emojiThrow });
       window.dispatchEvent(event);
     }

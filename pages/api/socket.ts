@@ -15,8 +15,7 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
     io.on('connection', (socket) => {
       console.log('New client connected');
 
-      socket.on('join', (user: User) => {
-        // Remove any existing user with the same ID
+      socket.on('join', (user: User, callback) => {
         users = users.filter(u => u.id !== user.id);
 
         // Add the new or updated user
@@ -29,29 +28,33 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
 
         io.emit('users', users);
         io.emit('votes', votes);
+        callback({ users, votes, revealed });
       });
 
-      socket.on('vote', ({ userId, value }: { userId: string; value: number }) => {
+      socket.on('vote', ({ userId, value }, callback) => {
         votes[userId] = value;
         io.emit('votes', votes);
+        callback({ votes });
       });
 
-      socket.on('reveal', () => {
+      socket.on('reveal', (callback) => {
         revealed = true;
         io.emit('revealed', revealed);
         io.emit('votes', votes);
+        callback({ revealed, votes });
       });
 
-      socket.on('reset', () => {
+      socket.on('reset', (callback) => {
         votes = Object.fromEntries(Object.keys(votes).map(key => [key, null]));
         revealed = false;
         io.emit('votes', votes);
         io.emit('revealed', revealed);
+        callback({ votes, revealed });
       });
 
-      socket.on('throwEmoji', ({ targetUserId, emoji, startX, startY }) => {
-        // Broadcast the emoji throw to all clients
+      socket.on('throwEmoji', ({ targetUserId, emoji, startX, startY }, callback) => {
         io.emit('emojiThrow', { targetUserId, emoji, startX, startY });
+        callback({ emojiThrow: { targetUserId, emoji, startX, startY } });
       });
 
       socket.on('disconnect', () => {
