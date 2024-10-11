@@ -14,13 +14,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     switch (action) {
       case 'join':
         const newUser = req.body.user as User;
-        const existingUserIndex = users.findIndex(u => u.id === newUser.id);
-        if (existingUserIndex !== -1) {
-          users[existingUserIndex] = newUser;
-        } else {
-          users.push(newUser);
-          votes[newUser.id] = null;
-        }
+        users.push(newUser);
+        votes[newUser.id] = null;
         break;
       case 'vote':
         votes[userId] = value;
