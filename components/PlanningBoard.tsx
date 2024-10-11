@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useRef,
+  useCallback,
 } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import EmojiSelector from "@/components/EmojiSelector"
@@ -31,7 +32,6 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
   const { users, votes, revealed, vote, reveal, reset, updateUser, throwEmoji } = usePlanningSession(user);
   const [showSettings, setShowSettings] = useState(false);
   const [currentVote, setCurrentVote] = useState<number | null>(null);
-  const [emojiThrows, setEmojiThrows] = useState<EmojiThrow[]>([]);
   const { toast } = useToast();
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -41,12 +41,41 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
     }
   }, [revealed]);
 
+  const createEmojiAnimation = useCallback((targetUserId: string, emoji: string, startX: number, startY: number) => {
+    const targetElement = document.getElementById(`user-${targetUserId}`);
+    if (!targetElement || !boardRef.current) return;
+
+    const targetRect = targetElement.getBoundingClientRect();
+    const boardRect = boardRef.current.getBoundingClientRect();
+
+    const emojiElement = document.createElement('div');
+    emojiElement.textContent = emoji;
+    emojiElement.style.position = 'absolute';
+    emojiElement.style.left = `${startX}px`;
+    emojiElement.style.top = `${startY}px`;
+    emojiElement.style.fontSize = '2rem';
+    emojiElement.style.transition = 'all 1s cubic-bezier(0.25, 0.1, 0.25, 1)';
+    emojiElement.style.zIndex = '9999';
+
+    boardRef.current.appendChild(emojiElement);
+
+    // Trigger reflow
+    emojiElement.offsetHeight;
+
+    emojiElement.style.transform = `translate(${targetRect.left + targetRect.width / 2 - startX - boardRect.left}px, ${targetRect.top + targetRect.height / 2 - startY - boardRect.top}px) scale(1)`;
+    emojiElement.style.opacity = '0';
+
+    setTimeout(() => {
+      if (boardRef.current && boardRef.current.contains(emojiElement)) {
+        boardRef.current.removeChild(emojiElement);
+      }
+    }, 1000);
+  }, []);
+
   useEffect(() => {
     const handleEmojiThrow = (event: CustomEvent<EmojiThrow>) => {
-      setEmojiThrows((prev) => [...prev, event.detail]);
-      setTimeout(() => {
-        setEmojiThrows((prev) => prev.filter((et) => et !== event.detail));
-      }, 1000);
+      const { targetUserId, emoji, startX, startY } = event.detail;
+      createEmojiAnimation(targetUserId, emoji, startX, startY);
     };
 
     window.addEventListener('emojiThrow' as any, handleEmojiThrow);
@@ -54,7 +83,12 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
     return () => {
       window.removeEventListener('emojiThrow' as any, handleEmojiThrow);
     };
-  }, []);
+  }, [createEmojiAnimation]);
+
+  useEffect(() => {
+    // Update currentVote when votes change
+    setCurrentVote(votes[user.id] || null);
+  }, [votes, user.id]);
 
   const handleVote = (value: number) => {
     setCurrentVote(value);
@@ -83,20 +117,7 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
       const startX = Math.random() * rect.width;
       const startY = Math.random() * rect.height;
 
-      const newEmojiThrow: EmojiThrow = {
-        emoji,
-        targetUserId,
-        startX,
-        startY,
-      };
-
-      setEmojiThrows((prev) => [...prev, newEmojiThrow]);
-      // throwEmoji(targetUserId, emoji, startX, startY);
-
-      // Remove the emoji throw after animation completes
-      setTimeout(() => {
-        setEmojiThrows((prev) => prev.filter((et) => et !== newEmojiThrow));
-      }, 1000);
+      throwEmoji(targetUserId, emoji, startX, startY);
     }
   };
 
@@ -257,10 +278,6 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
           onClose={() => setShowSettings(false)}
         />
       )}
-
-      {emojiThrows.map((emojiThrow, index) => (
-        <EmojiAnimation key={index} emojiThrow={emojiThrow} />
-      ))}
     </div>
   );
 }
@@ -290,27 +307,4 @@ function calculateSummary(votes: { [key: string]: number | null }, users: User[]
     .filter((name): name is string => name !== 'Unknown');
 
   return { lowest, highest, average, lowestVoters, highestVoters };
-}
-
-function EmojiAnimation({ emojiThrow }: { emojiThrow: EmojiThrow }) {
-  const targetElement = document.getElementById(`user-${emojiThrow.targetUserId}`);
-  const targetRect = targetElement?.getBoundingClientRect();
-  const [animationStyle, setAnimationStyle] = useState<React.CSSProperties>({});
-
-  useEffect(() => {
-    if (!targetRect) return;
-
-    setAnimationStyle({
-      position: 'fixed',
-      left: `${emojiThrow.startX}px`,
-      top: `${emojiThrow.startY}px`,
-      fontSize: '2rem',
-      transition: 'all 1s cubic-bezier(0.25, 0.1, 0.25, 1)',
-      transform: `translate(${targetRect.left + targetRect.width / 2 - emojiThrow.startX}px, ${targetRect.top + targetRect.height / 2 - emojiThrow.startY}px) scale(1)`, // Scale to 1 for the final size
-      opacity: 1, // Make it visible
-      zIndex: 9999,
-    });
-  }, [targetRect, emojiThrow]); // Trigger effect when targetRect or emojiThrow changes
-
-  return <div style={animationStyle}>{emojiThrow.emoji}</div>;
 }

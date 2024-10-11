@@ -1,39 +1,37 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from '@/types/user';
 import io, { Socket } from 'socket.io-client';
-
-let socket: Socket;
 
 export const usePlanningSession = (user: User) => {
   const [users, setUsers] = useState<User[]>([]);
   const [votes, setVotes] = useState<{ [key: string]: number | null }>({});
   const [revealed, setRevealed] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
 
   const socketInitializer = async () => {
     await fetch('/api/socket');
-    socket = io();
+    socketRef.current = io();
 
-    socket.on('connect', () => {
+    socketRef.current.on('connect', () => {
       console.log('Connected to server');
-      socket.emit('join', user);
+      socketRef.current?.emit('join', user);
     });
 
-    socket.on('users', (updatedUsers: User[]) => {
+    socketRef.current.on('users', (updatedUsers: User[]) => {
       setUsers(updatedUsers);
     });
 
-    socket.on('votes', (updatedVotes: { [key: string]: number | null }) => {
+    socketRef.current.on('votes', (updatedVotes: { [key: string]: number | null }) => {
       setVotes(updatedVotes);
     });
 
-    socket.on('revealed', (isRevealed: boolean) => {
+    socketRef.current.on('revealed', (isRevealed: boolean) => {
       setRevealed(isRevealed);
     });
 
-    socket.on('emojiThrow', ({ targetUserId, emoji, startX, startY }) => {
-      // Handle incoming emoji throws
+    socketRef.current.on('emojiThrow', ({ targetUserId, emoji, startX, startY }) => {
       const event = new CustomEvent('emojiThrow', { detail: { targetUserId, emoji, startX, startY } });
       window.dispatchEvent(event);
     });
@@ -43,28 +41,38 @@ export const usePlanningSession = (user: User) => {
     socketInitializer();
 
     return () => {
-      if (socket) socket.disconnect();
+      if (socketRef.current) socketRef.current.disconnect();
     };
   }, []);
 
   const vote = useCallback((value: number) => {
-    socket.emit('vote', { userId: user.id, value });
+    if (socketRef.current) {
+      socketRef.current.emit('vote', { userId: user.id, value });
+    }
   }, [user.id]);
 
   const reveal = useCallback(() => {
-    socket.emit('reveal');
+    if (socketRef.current) {
+      socketRef.current.emit('reveal');
+    }
   }, []);
 
   const reset = useCallback(() => {
-    socket.emit('reset');
+    if (socketRef.current) {
+      socketRef.current.emit('reset');
+    }
   }, []);
 
   const updateUser = useCallback((updatedUser: User) => {
-    socket.emit('join', updatedUser);
+    if (socketRef.current) {
+      socketRef.current.emit('join', updatedUser);
+    }
   }, []);
 
   const throwEmoji = useCallback((targetUserId: string, emoji: string, startX: number, startY: number) => {
-    socket.emit('throwEmoji', { targetUserId, emoji, startX, startY });
+    if (socketRef.current) {
+      socketRef.current.emit('throwEmoji', { targetUserId, emoji, startX, startY });
+    }
   }, []);
 
   return { users, votes, revealed, vote, reveal, reset, updateUser, throwEmoji };

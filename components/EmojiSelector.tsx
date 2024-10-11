@@ -13,6 +13,11 @@ type EmojiSelectorProps = {
 export default function EmojiSelector({ onEmojiSelect }: EmojiSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
 
+  const handleEmojiClick = (emoji: string) => {
+    onEmojiSelect(emoji);
+    // We're not closing the popover here anymore
+  };
+
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
@@ -27,10 +32,7 @@ export default function EmojiSelector({ onEmojiSelect }: EmojiSelectorProps) {
               key={emoji}
               variant="ghost"
               className="w-10 h-10 p-0"
-              onClick={() => {
-                onEmojiSelect(emoji);
-                setIsOpen(false);
-              }}
+              onClick={() => handleEmojiClick(emoji)}
             >
               {emoji}
             </Button>
