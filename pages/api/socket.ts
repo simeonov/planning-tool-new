@@ -49,6 +49,11 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
         io.emit('revealed', revealed);
       });
 
+      socket.on('throwEmoji', ({ targetUserId, emoji, startX, startY }) => {
+        // Broadcast the emoji throw to all clients
+        io.emit('emojiThrow', { targetUserId, emoji, startX, startY });
+      });
+
       socket.on('disconnect', () => {
         console.log('Client disconnected');
         users = users.filter(user => user.id !== socket.id);

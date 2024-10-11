@@ -31,6 +31,12 @@ export const usePlanningSession = (user: User) => {
     socket.on('revealed', (isRevealed: boolean) => {
       setRevealed(isRevealed);
     });
+
+    socket.on('emojiThrow', ({ targetUserId, emoji, startX, startY }) => {
+      // Handle incoming emoji throws
+      const event = new CustomEvent('emojiThrow', { detail: { targetUserId, emoji, startX, startY } });
+      window.dispatchEvent(event);
+    });
   };
 
   useEffect(() => {
@@ -57,5 +63,9 @@ export const usePlanningSession = (user: User) => {
     socket.emit('join', updatedUser);
   }, []);
 
-  return { users, votes, revealed, vote, reveal, reset, updateUser };
+  const throwEmoji = useCallback((targetUserId: string, emoji: string, startX: number, startY: number) => {
+    socket.emit('throwEmoji', { targetUserId, emoji, startX, startY });
+  }, []);
+
+  return { users, votes, revealed, vote, reveal, reset, updateUser, throwEmoji };
 };

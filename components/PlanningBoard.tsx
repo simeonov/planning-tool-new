@@ -1,7 +1,12 @@
 "use client"
 
-import { useState, useEffect } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+} from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import EmojiSelector from "@/components/EmojiSelector"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Settings, Users, UserCircle, TrendingUp } from 'lucide-react';
@@ -15,17 +20,41 @@ type PlanningBoardProps = {
   onUserUpdate: (user: User) => void;
 };
 
+type EmojiThrow = {
+  emoji: string;
+  targetUserId: string;
+  startX: number;
+  startY: number;
+};
+
 export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps) {
-  const { users, votes, revealed, vote, reveal, reset, updateUser } = usePlanningSession(user);
+  const { users, votes, revealed, vote, reveal, reset, updateUser, throwEmoji } = usePlanningSession(user);
   const [showSettings, setShowSettings] = useState(false);
   const [currentVote, setCurrentVote] = useState<number | null>(null);
+  const [emojiThrows, setEmojiThrows] = useState<EmojiThrow[]>([]);
   const { toast } = useToast();
+  const boardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!revealed) {
       setCurrentVote(null);
     }
   }, [revealed]);
+
+  useEffect(() => {
+    const handleEmojiThrow = (event: CustomEvent<EmojiThrow>) => {
+      setEmojiThrows((prev) => [...prev, event.detail]);
+      setTimeout(() => {
+        setEmojiThrows((prev) => prev.filter((et) => et !== event.detail));
+      }, 1000);
+    };
+
+    window.addEventListener('emojiThrow' as any, handleEmojiThrow);
+
+    return () => {
+      window.removeEventListener('emojiThrow' as any, handleEmojiThrow);
+    };
+  }, []);
 
   const handleVote = (value: number) => {
     setCurrentVote(value);
@@ -48,6 +77,29 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
     setShowSettings(false);
   };
 
+  const handleEmojiSelect = (targetUserId: string) => (emoji: string) => {
+    if (boardRef.current) {
+      const rect = boardRef.current.getBoundingClientRect();
+      const startX = Math.random() * rect.width;
+      const startY = Math.random() * rect.height;
+
+      const newEmojiThrow: EmojiThrow = {
+        emoji,
+        targetUserId,
+        startX,
+        startY,
+      };
+
+      setEmojiThrows((prev) => [...prev, newEmojiThrow]);
+      // throwEmoji(targetUserId, emoji, startX, startY);
+
+      // Remove the emoji throw after animation completes
+      setTimeout(() => {
+        setEmojiThrows((prev) => prev.filter((et) => et !== newEmojiThrow));
+      }, 1000);
+    }
+  };
+
   const estimators = users.filter(u => u.role === 'Estimator');
   const observers = users.filter(u => u.role === 'Observer');
 
@@ -56,11 +108,11 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
   const summary = calculateSummary(votes, users);
 
   return (
-    <div className="container mx-auto px-4 py-8 min-h-screen">
+    <div className="container mx-auto px-4 py-8 min-h-screen" ref={boardRef}>
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Poker Planning App</h1>
         <Button variant="outline" size="icon" onClick={() => setShowSettings(true)}>
-          <Settings className="h-4 w-4" />
+          <Settings className="h-4 w-4"/>
         </Button>
       </div>
 
@@ -74,16 +126,19 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {estimators.map((estimator) => (
-                  <Card key={estimator.id} className={`p-4 ${votes[estimator.id] !== null ? 'bg-green-50 border-green-200' : ''}`}>
+                  <Card key={estimator.id} className={`p-4 ${votes[estimator.id] !== null ? 'bg-green-50 border-green-200' : ''}`} id={`user-${estimator.id}`}>
                     <CardContent className="flex items-center space-x-4">
                       <Avatar>
                         <AvatarImage src={`https://api.dicebear.com/6.x/initials/svg?seed=${estimator.name}`} />
                         <AvatarFallback>{estimator.name.charAt(0)}</AvatarFallback>
                       </Avatar>
-                      <div>
+                      <div className="flex-grow">
                         <p className="font-semibold text-gray-700">{estimator.name}</p>
                         <p className="text-sm text-gray-500">{votes[estimator.id] !== null ? 'Voted' : 'Not voted'}</p>
                       </div>
+                      {estimator.id !== user.id && (
+                        <EmojiSelector onEmojiSelect={handleEmojiSelect(estimator.id)} />
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -138,7 +193,7 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
                         <CardContent className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
                             <Avatar>
-                              <AvatarImage src={`https://api.dicebear.com/6.x/initials/svg?seed=${voter?.name}`} />
+                              <AvatarImage src={`https://api.dicebear.com/6.x/initials/svg?seed=${voter?.name}`}/>
                               <AvatarFallback>{voter?.name.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <p className="font-semibold text-gray-700">{voter?.name}</p>
@@ -158,7 +213,7 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center space-x-2 mb-4">
-                <Users className="h-6 w-6 text-green-500" />
+                <Users className="h-6 w-6 text-green-500"/>
                 <h2 className="text-2xl font-semibold text-gray-800">Observers</h2>
               </div>
               <div className="space-y-4">
@@ -166,7 +221,7 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
                   <Card key={observer.id} className="p-4">
                     <CardContent className="flex items-center space-x-4">
                       <Avatar>
-                        <AvatarImage src={`https://api.dicebear.com/6.x/initials/svg?seed=${observer.name}`} />
+                        <AvatarImage src={`https://api.dicebear.com/6.x/initials/svg?seed=${observer.name}`}/>
                         <AvatarFallback>{observer.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <p className="font-semibold text-gray-700">{observer.name}</p>
@@ -181,7 +236,7 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center space-x-2 mb-4">
-                  <TrendingUp className="h-6 w-6 text-purple-500" />
+                  <TrendingUp className="h-6 w-6 text-purple-500"/>
                   <h2 className="text-2xl font-semibold text-gray-800">Summary</h2>
                 </div>
                 <div className="space-y-2">
@@ -202,6 +257,10 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
           onClose={() => setShowSettings(false)}
         />
       )}
+
+      {emojiThrows.map((emojiThrow, index) => (
+        <EmojiAnimation key={index} emojiThrow={emojiThrow} />
+      ))}
     </div>
   );
 }
@@ -231,4 +290,27 @@ function calculateSummary(votes: { [key: string]: number | null }, users: User[]
     .filter((name): name is string => name !== 'Unknown');
 
   return { lowest, highest, average, lowestVoters, highestVoters };
+}
+
+function EmojiAnimation({ emojiThrow }: { emojiThrow: EmojiThrow }) {
+  const targetElement = document.getElementById(`user-${emojiThrow.targetUserId}`);
+  const targetRect = targetElement?.getBoundingClientRect();
+  const [animationStyle, setAnimationStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (!targetRect) return;
+
+    setAnimationStyle({
+      position: 'fixed',
+      left: `${emojiThrow.startX}px`,
+      top: `${emojiThrow.startY}px`,
+      fontSize: '2rem',
+      transition: 'all 1s cubic-bezier(0.25, 0.1, 0.25, 1)',
+      transform: `translate(${targetRect.left + targetRect.width / 2 - emojiThrow.startX}px, ${targetRect.top + targetRect.height / 2 - emojiThrow.startY}px) scale(1)`, // Scale to 1 for the final size
+      opacity: 1, // Make it visible
+      zIndex: 9999,
+    });
+  }, [targetRect, emojiThrow]); // Trigger effect when targetRect or emojiThrow changes
+
+  return <div style={animationStyle}>{emojiThrow.emoji}</div>;
 }
