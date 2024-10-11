@@ -1,4 +1,4 @@
-"use client"
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '@/types/user';
@@ -36,6 +36,10 @@ export const usePlanningSession = (user: User) => {
       const event = new CustomEvent('emojiThrow', { detail: data });
       window.dispatchEvent(event);
     });
+
+    socket.on('disconnect', () => {
+      console.log('Disconnected from server');
+    });
   };
 
   useEffect(() => {
@@ -59,12 +63,17 @@ export const usePlanningSession = (user: User) => {
   }, []);
 
   const updateUser = useCallback((updatedUser: User) => {
-    socket.emit('join', updatedUser);
+    if (socket) {
+      socket.emit('join', updatedUser);
+    }
   }, []);
 
-  const throwEmoji = useCallback((targetUserId: string, emoji: string, startX: number, startY: number) => {
-    socket.emit('throwEmoji', { targetUserId, emoji, startX, startY });
-  }, []);
+  const throwEmoji = useCallback(
+    (targetUserId: string, emoji: string, startX: number, startY: number) => {
+      socket.emit('throwEmoji', { targetUserId, emoji, startX, startY });
+    },
+    []
+  );
 
   return { users, votes, revealed, vote, reveal, reset, updateUser, throwEmoji };
 };

@@ -17,10 +17,10 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
 
       socket.on('join', (user: User) => {
         // Remove any existing user with the same ID
-        users = users.filter(u => u.id !== user.id);
+        users = users.filter((u) => u.id !== user.id);
 
-        // Add the new or updated user
-        users.push(user);
+        // Add the new or updated user with socket ID
+        users.push({ ...user, socketId: socket.id });
 
         // Ensure there's a vote entry for this user
         if (!(user.id in votes)) {
@@ -44,7 +44,7 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
       });
 
       socket.on('reset', () => {
-        votes = Object.fromEntries(Object.keys(votes).map(key => [key, null]));
+        votes = Object.fromEntries(Object.keys(votes).map((key) => [key, null]));
         revealed = false;
         io.emit('votes', votes);
         io.emit('revealed', revealed);
@@ -56,11 +56,14 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
       });
 
       socket.on('disconnect', () => {
-        console.log('Client disconnected');
-        users = users.filter(user => user.id !== socket.id);
-        delete votes[socket.id];
-        io.emit('users', users);
-        io.emit('votes', votes);
+        console.log('Client disconnected:', socket.id);
+        const disconnectedUser = users.find(user => user.socketId === socket.id);
+        if (disconnectedUser) {
+          users = users.filter(user => user.socketId !== socket.id);
+          delete votes[disconnectedUser.id];
+          io.emit('users', users);
+          io.emit('votes', votes);
+        }
       });
     });
   }
@@ -68,9 +71,3 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
 };
 
 export default SocketHandler;
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};

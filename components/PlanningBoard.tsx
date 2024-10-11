@@ -36,6 +36,10 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
   const boardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    updateUser(user);
+  }, [updateUser, user]);
+
+  useEffect(() => {
     if (!revealed) {
       setCurrentVote(null);
     }
