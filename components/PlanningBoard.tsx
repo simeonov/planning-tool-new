@@ -113,6 +113,7 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
               <div className="grid grid-cols-3 gap-4">
                 {Object.entries(votes).map(([userId, value]) => {
                   const voter = users.find(u => u.id === userId);
+                  if (!voter || voter.role !== 'Estimator') return null;
                   return (
                     <Card key={userId} className="p-4">
                       <CardContent className="flex items-center justify-between">
@@ -154,7 +155,10 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
       {showSettings && (
         <UserSettings
           user={user}
-          onUpdate={onUserUpdate}
+          onUpdate={(updatedUser) => {
+            onUserUpdate(updatedUser);
+            setShowSettings(false);
+          }}
           onClose={() => setShowSettings(false)}
         />
       )}

@@ -17,10 +17,19 @@ export const usePlanningSession = (user: User) => {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    const joinSession = async () => {
+      await fetch('/api/planning-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'join', user }),
+      });
+      fetchData();
+    };
+
+    joinSession();
     const interval = setInterval(fetchData, 2000); // Poll every 2 seconds
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchData, user]);
 
   const vote = useCallback(async (value: number) => {
     await fetch('/api/planning-session', {

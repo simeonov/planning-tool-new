@@ -19,7 +19,7 @@ export default function HomeContent() {
   }, []);
 
   const handleUserAuth = (newUser: Omit<User, 'id'>) => {
-    const userWithId: User = { ...newUser, id: Date.now().toString() };
+    const userWithId = { ...newUser, id: Date.now().toString() };
     setUser(userWithId);
     localStorage.setItem('planningPokerUser', JSON.stringify(userWithId));
   };
@@ -32,5 +32,5 @@ export default function HomeContent() {
     return <UserAuth onUserAuth={handleUserAuth} />;
   }
 
-  return <PlanningBoard user={user} onUserUpdate={setUser} />;
+  return <PlanningBoard user={user} onUserUpdate={handleUserAuth} />;
 }
