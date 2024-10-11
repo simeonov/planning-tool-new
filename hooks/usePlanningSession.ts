@@ -2,61 +2,60 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '@/types/user';
+import io, { Socket } from 'socket.io-client';
+
+let socket: Socket;
 
 export const usePlanningSession = (user: User) => {
   const [users, setUsers] = useState<User[]>([]);
   const [votes, setVotes] = useState<{ [key: string]: number | null }>({});
   const [revealed, setRevealed] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    const response = await fetch('/api/planning-session');
-    const data = await response.json();
-    setUsers(data.users);
-    setVotes(data.votes);
-    setRevealed(data.revealed);
-  }, []);
+  const socketInitializer = async () => {
+    await fetch('/api/socket');
+    socket = io();
+
+    socket.on('connect', () => {
+      console.log('Connected to server');
+      socket.emit('join', user);
+    });
+
+    socket.on('users', (updatedUsers: User[]) => {
+      setUsers(updatedUsers);
+    });
+
+    socket.on('votes', (updatedVotes: { [key: string]: number | null }) => {
+      setVotes(updatedVotes);
+    });
+
+    socket.on('revealed', (isRevealed: boolean) => {
+      setRevealed(isRevealed);
+    });
+  };
 
   useEffect(() => {
-    const joinSession = async () => {
-      await fetch('/api/planning-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'join', user }),
-      });
-      fetchData();
+    socketInitializer();
+
+    return () => {
+      if (socket) socket.disconnect();
     };
+  }, []);
 
-    joinSession();
-    const interval = setInterval(fetchData, 2000); // Poll every 2 seconds
-    return () => clearInterval(interval);
-  }, [fetchData, user]);
+  const vote = useCallback((value: number) => {
+    socket.emit('vote', { userId: user.id, value });
+  }, [user.id]);
 
-  const vote = useCallback(async (value: number) => {
-    await fetch('/api/planning-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'vote', userId: user.id, value }),
-    });
-    fetchData();
-  }, [user.id, fetchData]);
+  const reveal = useCallback(() => {
+    socket.emit('reveal');
+  }, []);
 
-  const reveal = useCallback(async () => {
-    await fetch('/api/planning-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reveal' }),
-    });
-    fetchData();
-  }, [fetchData]);
+  const reset = useCallback(() => {
+    socket.emit('reset');
+  }, []);
 
-  const reset = useCallback(async () => {
-    await fetch('/api/planning-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reset' }),
-    });
-    fetchData();
-  }, [fetchData]);
+  const updateUser = useCallback((updatedUser: User) => {
+    socket.emit('join', updatedUser);
+  }, []);
 
-  return { users, votes, revealed, vote, reveal, reset };
+  return { users, votes, revealed, vote, reveal, reset, updateUser };
 };

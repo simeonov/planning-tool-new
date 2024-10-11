@@ -1,75 +1,64 @@
-import { Server } from 'socket.io';
+import { Server as SocketIOServer } from 'socket.io';
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { User } from '@/types/user';
+
+let users: User[] = [];
+let votes: { [key: string]: number | null } = {};
+let revealed = false;
 
 const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
-  if (!res.socket || !(res.socket as any).server) {
-    res.status(500).json({ error: 'Server socket not available' });
-    return;
-  }
+  if (!(res.socket as any).server.io) {
+    console.log('Socket is initializing');
+    const io = new SocketIOServer((res.socket as any).server);
+    (res.socket as any).server.io = io;
 
-  if ((res.socket as any).server.io) {
-    console.log('Socket is already running');
-    res.end();
-    return;
-  }
+    io.on('connection', (socket) => {
+      console.log('New client connected');
 
-  console.log('Socket is initializing');
-  const io = new Server((res.socket as any).server);
-  (res.socket as any).server.io = io;
+      socket.on('join', (user: User) => {
+        // Remove any existing user with the same ID
+        users = users.filter(u => u.id !== user.id);
 
-  const users: { id: string; name: string; role: 'Estimator' | 'Observer' }[] = [];
-  const votes: { [key: string]: number | null } = {};
+        // Add the new or updated user
+        users.push(user);
 
-  io.on('connection', (socket) => {
-    console.log('New client connected');
+        // Ensure there's a vote entry for this user
+        if (!(user.id in votes)) {
+          votes[user.id] = null;
+        }
 
-    socket.on('join', (user) => {
-      const newUser = { ...user, id: socket.id };
-      users.push(newUser);
-      io.emit('users', users);
-    });
+        io.emit('users', users);
+        io.emit('votes', votes);
+      });
 
-    socket.on('vote', (value) => {
-      votes[socket.id] = value;
-      io.emit('votes', votes);
-    });
+      socket.on('vote', ({ userId, value }: { userId: string; value: number }) => {
+        votes[userId] = value;
+        io.emit('votes', votes);
+      });
 
-    socket.on('reveal', () => {
-      const summary = calculateSummary(votes);
-      if (summary) {
-        io.emit('reveal', votes, summary);
-      }
-    });
+      socket.on('reveal', () => {
+        revealed = true;
+        io.emit('revealed', revealed);
+        io.emit('votes', votes);
+      });
 
-    socket.on('reset', () => {
-      Object.keys(votes).forEach(key => votes[key] = null);
-      io.emit('reset');
-      io.emit('votes', votes);
-    });
+      socket.on('reset', () => {
+        votes = Object.fromEntries(Object.keys(votes).map(key => [key, null]));
+        revealed = false;
+        io.emit('votes', votes);
+        io.emit('revealed', revealed);
+      });
 
-    socket.on('disconnect', () => {
-      const index = users.findIndex((u) => u.id === socket.id);
-      if (index !== -1) {
-        users.splice(index, 1);
+      socket.on('disconnect', () => {
+        console.log('Client disconnected');
+        users = users.filter(user => user.id !== socket.id);
         delete votes[socket.id];
         io.emit('users', users);
         io.emit('votes', votes);
-      }
+      });
     });
-  });
-
+  }
   res.end();
 };
-
-function calculateSummary(votes: { [key: string]: number | null }) {
-  const validVotes = Object.values(votes).filter((v): v is number => v !== null);
-  if (validVotes.length === 0) return null;
-
-  const lowest = Math.min(...validVotes);
-  const highest = Math.max(...validVotes);
-  const average = validVotes.reduce((sum, value) => sum + value, 0) / validVotes.length;
-
-  return { lowest, highest, average };
-}
 
 export default SocketHandler;

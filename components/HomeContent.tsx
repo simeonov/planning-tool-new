@@ -24,6 +24,11 @@ export default function HomeContent() {
     localStorage.setItem('planningPokerUser', JSON.stringify(userWithId));
   };
 
+  const handleUserUpdate = (updatedUser: User) => {
+    setUser(updatedUser);
+    localStorage.setItem('planningPokerUser', JSON.stringify(updatedUser));
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -32,5 +37,5 @@ export default function HomeContent() {
     return <UserAuth onUserAuth={handleUserAuth} />;
   }
 
-  return <PlanningBoard user={user} onUserUpdate={handleUserAuth} />;
+  return <PlanningBoard user={user} onUserUpdate={handleUserUpdate} />;
 }

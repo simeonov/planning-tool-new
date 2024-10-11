@@ -6,7 +6,6 @@ const DynamicUserAuth = dynamic(() => import('@/components/UserAuth'), { ssr: fa
 export default function Home() {
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8 text-center">Poker Planning App</h1>
       <DynamicHomeContent />
     </div>
   );

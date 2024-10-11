@@ -8,6 +8,7 @@ import { Settings, Users, UserCircle, TrendingUp } from 'lucide-react';
 import UserSettings from './UserSettings';
 import { usePlanningSession } from '@/hooks/usePlanningSession';
 import { User } from '@/types/user';
+import { useToast } from '@/hooks/use-toast';
 
 type PlanningBoardProps = {
   user: User;
@@ -15,9 +16,10 @@ type PlanningBoardProps = {
 };
 
 export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps) {
-  const { users, votes, revealed, vote, reveal, reset } = usePlanningSession(user);
+  const { users, votes, revealed, vote, reveal, reset, updateUser } = usePlanningSession(user);
   const [showSettings, setShowSettings] = useState(false);
   const [currentVote, setCurrentVote] = useState<number | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!revealed) {
@@ -39,6 +41,13 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
     setCurrentVote(null);
   };
 
+  const handleUserUpdate = (updatedUser: User) => {
+    const newUser = { ...user, ...updatedUser };
+    onUserUpdate(newUser);
+    updateUser(newUser);
+    setShowSettings(false);
+  };
+
   const estimators = users.filter(u => u.role === 'Estimator');
   const observers = users.filter(u => u.role === 'Observer');
 
@@ -47,9 +56,9 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
   const summary = calculateSummary(votes, users);
 
   return (
-    <div className="container mx-auto px-4 py-8 bg-gray-50 min-h-screen">
+    <div className="container mx-auto px-4 py-8 min-h-screen">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Planning Poker</h1>
+        <h1 className="text-3xl font-bold text-gray-800">Poker Planning App</h1>
         <Button variant="outline" size="icon" onClick={() => setShowSettings(true)}>
           <Settings className="h-4 w-4" />
         </Button>
@@ -189,10 +198,7 @@ export default function PlanningBoard({ user, onUserUpdate }: PlanningBoardProps
       {showSettings && (
         <UserSettings
           user={user}
-          onUpdate={(updatedUser) => {
-            onUserUpdate(updatedUser);
-            setShowSettings(false);
-          }}
+          onUpdate={handleUserUpdate}
           onClose={() => setShowSettings(false)}
         />
       )}
