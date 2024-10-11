@@ -2,12 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import io, { Socket } from 'socket.io-client';
-
-export type User = {
-  id: string;
-  name: string;
-  role: 'Estimator' | 'Observer';
-};
+import { User } from '@/types/user';
 
 export const useSocket = (user: User) => {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -16,11 +11,12 @@ export const useSocket = (user: User) => {
   const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
-    const newSocket = io('http://localhost:3001', {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '/api/socket';
+    const newSocket = io(socketUrl, {
       transports: ['websocket'],
       upgrade: false,
     });
-    
+
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
@@ -73,5 +69,11 @@ export const useSocket = (user: User) => {
     }
   }, [socket]);
 
-  return { socket, users, votes, revealed, vote, reveal, reset };
+  const throwEmoji = useCallback((targetUserId: string, emoji: string, startX: number, startY: number) => {
+    if (socket) {
+      socket.emit('throwEmoji', { targetUserId, emoji, startX, startY });
+    }
+  }, [socket]);
+
+  return { socket, users, votes, revealed, vote, reveal, reset, throwEmoji };
 };

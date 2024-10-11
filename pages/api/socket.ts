@@ -67,10 +67,10 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
   res.end();
 };
 
+export default SocketHandler;
+
 export const config = {
   api: {
     bodyParser: false,
   },
 };
-
-export default SocketHandler;

@@ -30,7 +30,6 @@ exports.handler = async (event, context) => {
       }
       io.emit('users', users);
       io.emit('votes', votes);
-      io.emit('revealed', revealed);
     });
 
     socket.on('vote', ({ userId, value }) => {
@@ -40,7 +39,6 @@ exports.handler = async (event, context) => {
 
     socket.on('reveal', () => {
       revealed = true;
-      io.emit('revealed', revealed);
       io.emit('votes', votes);
     });
 
@@ -48,7 +46,6 @@ exports.handler = async (event, context) => {
       votes = Object.fromEntries(Object.keys(votes).map(key => [key, null]));
       revealed = false;
       io.emit('votes', votes);
-      io.emit('revealed', revealed);
     });
 
     socket.on('throwEmoji', ({ targetUserId, emoji, startX, startY }) => {
